@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 class ContentExtractor:
     """
     guide-fin 페이지 HTML에서 본문 영역을 추출하고,
-    h1/h2/h3 기준 섹션 리스트를 만든다.
+    h1/h2/h3 기준 섹션 리스트를 만듭니다.
     """
 
     def extract_sections(self, html: str) -> List[Dict[str, str]]:
@@ -48,8 +48,7 @@ class ContentExtractor:
                 }
             )
 
-        # 혹시라도 위 로직으로 아무 섹션도 못 뽑았으면,
-        # 전체 텍스트를 하나의 섹션으로라도 반환 (백업용)
+        # 혹시 아무 섹션도 못 뽑았으면 전체 텍스트를 하나의 섹션으로 반환
         if not sections:
             body_text = soup.get_text(separator="\n", strip=True)
             if body_text:
