@@ -1,14 +1,135 @@
+# from ncloud_docs_mcp.indexer.crawler import FinCrawler
+# from ncloud_docs_mcp.indexer.extractor import ContentExtractor
+# from ncloud_docs_mcp.indexer.embedder import DummyEmbedder
+# from ncloud_docs_mcp.vector.qdrant_client import NcpQdrantClient
+
+
+# def run_fin_index() -> None:
+#     print("=== run_fin_index: 금융 문서 전체 인덱싱 시작 ===")
+
+#     crawler = FinCrawler()
+#     extractor = ContentExtractor()
+#     embedder = DummyEmbedder()
+#     qdrant = NcpQdrantClient()
+
+#     urls = crawler.crawl()
+#     print(f"총 {len(urls)}개의 URL 수집됨")
+
+#     # 테스트용으로 3개만
+#     urls = urls[:3]
+
+#     for url in urls:
+#         print(f"[PROCESS] {url}")
+
+#         try:
+#             html = crawler.fetch(url)
+#         except Exception as e:
+#             print(f"[WARN] fetch 실패: {url} ({e})")
+#             continue
+
+#         sections = extractor.extract_sections(html)
+#         print(f"  섹션 수: {len(sections)}")
+
+#         if not sections:
+#             print("  섹션 없음 → skip")
+#             continue
+
+#         texts = [sec['text'] for sec in sections]
+#         vectors = embedder.embed(texts)
+#         print(f"  벡터 수: {len(vectors)}")
+
+#         payloads = []
+#         for sec in sections:
+#             payloads.append(
+#                 {
+#                     "platform": "fin",
+#                     "guide_type": "usage",
+#                     "url": url,
+#                     "title": "(추후추출)",
+#                     "section": sec["section"],
+#                     "text": sec["text"],
+#                 }
+#             )
+
+#         print(f"  payload 수: {len(payloads)}")
+
+#         # qdrant.upsert_sections(vectors=vectors, payloads=payloads)
+#         # print("  Qdrant upsert 완료")
+#         try:
+#             qdrant.upsert_sections(vectors=vectors, payloads=payloads)
+#             print("  Qdrant upsert 완료")
+#         except Exception as e:
+#             print(f"  [ERROR] Qdrant upsert 실패: {e}")
+#             break
+
+#     print("=== run_fin_index: 완료 ===")
+
+from ncloud_docs_mcp.indexer.crawler import FinCrawler
+from ncloud_docs_mcp.indexer.extractor import ContentExtractor
+from ncloud_docs_mcp.indexer.embedder import DummyEmbedder
+from ncloud_docs_mcp.vector.qdrant_client import NcpQdrantClient
+
 
 def run_fin_index() -> None:
-    """
-    금융(guide-fin) 사용 가이드 전체를 인덱싱하는 엔트리 포인트.
+    print("=== run_fin_index: 금융 문서 전체 인덱싱 시작 ===")
 
-    추후 구현:
-    - BFS 크롤러 실행
-    - HTML 본문 추출
-    - 섹션 분리
-    - 임베딩 계산
-    - Qdrant 업서트
-    - 메타데이터 저장
-    """
-    print("run_fin_index: 아직 구현되지 않았습니다. 이후에 crawler / extractor / embedder / qdrant 연동을 추가할 예정입니다.")
+    crawler = FinCrawler()
+    extractor = ContentExtractor()
+    embedder = DummyEmbedder()
+    qdrant = NcpQdrantClient()
+
+    urls = crawler.crawl()
+    print(f"총 {len(urls)}개의 URL 수집됨")
+
+    # 여기서 실제 어떤 URL들이 들어왔는지 상위 몇 개 찍어보기
+    for i, u in enumerate(urls[:20]):
+        print(f"  URL[{i}]: {u}")
+
+    max_urls = 3
+    target_urls = urls[:max_urls]
+    print(f"앞 {len(target_urls)}개의 URL만 인덱싱 진행")
+
+    for url in target_urls:
+        print(f"[PROCESS] {url}")
+
+        try:
+            html = crawler.fetch(url)
+            print("  fetch OK (runner)")
+        except Exception as e:
+            print(f"  [WARN] fetch 실패 (runner): {e}")
+            continue
+
+        sections = extractor.extract_sections(html)
+        print(f"  섹션 수: {len(sections)}")
+
+        if not sections:
+            print("  섹션 없음 → skip")
+            continue
+
+        texts = [sec["text"] for sec in sections]
+        vectors = embedder.embed(texts)
+        print(f"  벡터 수: {len(vectors)}")
+
+        payloads = []
+        for sec in sections:
+            payloads.append(
+                {
+                    "platform": "fin",
+                    "guide_type": "usage",
+                    "url": url,
+                    "title": "(추후추출)",
+                    "section": sec["section"],
+                    "text": sec["text"],
+                }
+            )
+
+        print(f"  payload 수: {len(payloads)}")
+
+        try:
+            qdrant.upsert_sections(vectors=vectors, payloads=payloads)
+            print("  Qdrant upsert 완료")
+        except Exception as e:
+            print(f"  [ERROR] Qdrant upsert 실패: {e}")
+            break
+
+    print("=== run_fin_index: 완료 ===")

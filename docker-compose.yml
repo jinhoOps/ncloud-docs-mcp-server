@@ -4,5 +4,12 @@ services:
     container_name: qdrant
     ports:
       - "6333:6333"
-    volumes:
-      - ./data/qdrant:/qdrant/storage
+    # 개발 단계에서는 일단 로컬 볼륨 마운트 제거 (윈도우 FS 이슈 회피)
+    # volumes:
+    #   - ./data/qdrant:/qdrant/storage
+    environment:
+      - QDRANT__STORAGE__PERF__DISABLE_FS_CHECK=true
+
+
+# 윈도우 + Docker Desktop에서 로컬 디렉터리를 볼륨 마운트하면, Qdrant가 파일시스템 타입을 못 알아먹어서 저 경고를 내고, 버전에 따라 아예 종료(SIGTERM)까지 해버리는 경우가 있습니다.
+# 지금은 Exit code 143(Sigterm) 이라, 누가 죽인 건 맞는데 사실상 Qdrant 쪽이 “여기서 못 쓰겠다” 하고 내려가는 상황이라고 보면 됩니다.
