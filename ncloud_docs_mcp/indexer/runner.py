@@ -20,7 +20,7 @@ def run_fin_index() -> None:
         print(f"  URL[{i}]: {u}")
 
     # 최대 N개만 인덱싱 (개발 중에는 작은 수로 제한)
-    max_urls = 20
+    max_urls = 100
     target_urls = urls[:max_urls]
     print(f"앞 {len(target_urls)}개의 URL만 인덱싱 진행")
 

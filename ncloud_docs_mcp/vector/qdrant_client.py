@@ -69,57 +69,50 @@ class NcpQdrantClient:
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
-        MVP 1차용: Qdrant에서 payload만 가져오고, score는 항상 0.0 으로 고정한다.
-        (qdrant-client 버전마다 score 타입이 달라서 발생하는 오류를 피하기 위함)
+        Qdrant query_points 결과(QueryResponse)를 올바르게 파싱해서
+        id / score / payload 를 꺼내는 단순한 버전.
+
+        - score 는 현재 MVP 단계에서는 크게 의미 없으므로 그대로 전달만 하고,
+          ncp_search_docs 쪽에서는 필요하면 무시해도 된다.
         """
         self.ensure_collection()
 
-        result = self.client.query_points(
+        res = self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector,
-            query_filter=None,   # filters는 아직 미사용
+            query_filter=None,   # filters는 아직 사용 안 함
             limit=top_k,
             with_payload=True,
             with_vectors=False,
         )
 
+        # qdrant-client 버전에 따라:
+        # - res 가 QueryResponse 이고 res.points 안에 ScoredPoint 리스트가 있는 형태가 일반적
+        # - 혹시 구버전이면 res 자체가 리스트일 수도 있음
+        points = getattr(res, "points", res)
+
         output: List[Dict[str, Any]] = []
 
-        for idx, point in enumerate(result):
-            # point 타입이 버전에 따라 ScoredPoint, 튜플, dict 등 다양할 수 있으므로
-            # payload만 최대한 안정적으로 뽑고 나머지는 최소한으로 처리한다.
+        for p in points:
+            # ScoredPoint 객체 기준
+            pid = getattr(p, "id", None)
+            score = getattr(p, "score", 0.0)
+            payload = getattr(p, "payload", {}) or {}
 
-            payload: Dict[str, Any] = {}
+            # 혹시 dict 형식으로 들어오는 경우 방어
+            if isinstance(p, dict):
+                pid = p.get("id", pid)
+                score = p.get("score", score)
+                payload = p.get("payload", payload) or {}
 
-            # 1) 객체 스타일 (ScoredPoint)
-            if hasattr(point, "payload"):
-                payload = getattr(point, "payload", {}) or {}
-                pid = getattr(point, "id", idx)
-
-            # 2) dict 스타일
-            elif isinstance(point, dict):
-                payload = point.get("payload", {}) or {}
-                pid = point.get("id", idx)
-
-            # 3) 튜플/리스트 스타일 (id, score, payload) 혹은 (ScoredPoint, payload)
-            elif isinstance(point, (tuple, list)) and point:
-                # (ScoredPoint, payload_dict)
-                if hasattr(point[0], "payload"):
-                    pid = getattr(point[0], "id", idx)
-                    payload = getattr(point[0], "payload", None) or (point[1] if len(point) > 1 else {})
-                else:
-                    # (id, score, payload) 형태 가정
-                    pid = point[0]
-                    payload = point[2] if len(point) > 2 else {}
-
-            else:
-                pid = idx
-                payload = {}
+            # id 가 여전히 None이면 index 기반으로라도 채워주기
+            if pid is None:
+                pid = len(output)
 
             output.append(
                 {
                     "id": pid,
-                    "score": 0.0,        # 여기서 score 는 완전히 무시 (MVP 단계)
+                    "score": float(score) if isinstance(score, (int, float)) else 0.0,
                     "payload": payload,
                 }
             )

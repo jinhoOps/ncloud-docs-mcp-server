@@ -38,27 +38,29 @@ def ncp_search_docs(
     # 쿼리 한 개 → 벡터 한 개
     query_vec = embedder.embed([query])[0]
 
-    results: List[Dict[str, Any]] = qdrant.search(
+    hits: List[Dict[str, Any]] = qdrant.search(
         query_vector=query_vec,
         top_k=top_k,
         filters=None,
     )
 
-    items = []
-    for hit in results:
+    items: List[Dict[str, Any]] = []
+    for hit in hits:
         payload = hit.get("payload") or {}
+
         title = payload.get("title", "")
         url = payload.get("url", "")
         section = payload.get("section", "")
         text = payload.get("text", "")
         snippet = text[:200]
+
         items.append(
             {
                 "title": title,
                 "url": url,
                 "section": section,
                 "snippet": snippet,
-                "score": hit["score"],
+                "score": hit.get("score", 0.0),
                 "platform": payload.get("platform", platform),
             }
         )

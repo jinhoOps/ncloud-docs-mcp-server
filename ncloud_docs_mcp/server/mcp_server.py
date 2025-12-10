@@ -1,49 +1,50 @@
+# ncloud_docs_mcp/server/mcp_server.py
+
 from typing import Any, Dict
 
+from mcp.server.fastmcp import FastMCP  # MCP Python SDK
 from ncloud_docs_mcp.server.tools import ncp_search_docs, ncp_read_doc
 
-
-try:
-    # MCP Python SDK 패키지명에 맞게 수정해야 합니다.
-    # 예시: from mcp.server import Server
-    MCP_AVAILABLE = True
-except ImportError:
-    MCP_AVAILABLE = False
-    Server = None  # type: ignore[misc]
+# Claude/Desktop 에서 보일 MCP 서버 이름
+mcp = FastMCP("ncloud-docs-mcp-server")
 
 
-def ncp_search_docs_tool(params: Dict[str, Any]) -> Dict[str, Any]:
-    platform = params.get("platform", "fin")
-    query = params.get("query", "")
-    top_k = int(params.get("top_k", 5))
-
+@mcp.tool()
+async def search_docs(
+    platform: str,
+    query: str,
+    top_k: int = 5,
+) -> Dict[str, Any]:
+    """
+    NCP 문서 검색 도구 (MCP Tool)
+    - platform: "public" | "fin" | "gov"
+    - query   : 검색어
+    - top_k   : 최대 결과 개수
+    """
     return ncp_search_docs(platform=platform, query=query, top_k=top_k)
 
 
-def ncp_read_doc_tool(params: Dict[str, Any]) -> Dict[str, Any]:
-    url = params.get("url", "")
-    return ncp_read_doc(url=url)
-
-
-def run_stdio_server() -> None:
+@mcp.tool()
+async def read_doc(
+    url: str,
+) -> Dict[str, Any]:
     """
-    MCP stdio 서버 실행 엔트리.
-
-    실제 MCP SDK 를 사용할 때:
-    - Server 인스턴스 생성
-    - ncp_search_docs, ncp_read_doc 툴 등록
-    - stdio 루프 실행
+    NCP 단일 문서 읽기 도구 (MCP Tool)
+    - url: NCP 문서 URL (예: https://guide-fin.ncloud-docs.com/docs/server-overview)
     """
-    if not MCP_AVAILABLE:
-        print("MCP Python SDK 를 찾을 수 없습니다. 해당 패키지를 설치한 뒤 import 부분을 수정해 주세요.")
-        return
-
-    # TODO: MCP SDK 실제 사용 예제에 맞게 Server 초기화와 툴 등록을 구현하세요.
-    print("run_stdio_server: MCP 서버 로직은 아직 구현되지 않았습니다.")
+    return ncp_read_doc(url)
 
 
 def main() -> None:
-    run_stdio_server()
+    """
+    STDIO 기반 MCP 서버 시작 엔트리포인트.
+
+    중요:
+    - MCP 서버는 JSON-RPC를 stdout/stdin으로 주고받으므로,
+      이 파일 안에서는 절대 print()로 stdout에 로그를 찍지 말 것.
+      (로그는 필요하면 logging + stderr 핸들러로 보내야 함)
+    """
+    mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

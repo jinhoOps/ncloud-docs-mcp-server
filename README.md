@@ -150,6 +150,9 @@ uv add python-dotenv
 ```
 
 (MCP Python SDK 패키지는 나중에 추가 예정)
+```
+uv add mcp
+```
 
 설치가 끝나면 다시 한 번 간단히 확인:
 
