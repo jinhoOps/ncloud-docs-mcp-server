@@ -1,11 +1,5 @@
-아래 내용 그대로 README에 붙여도 될 정도로 정리해볼게요.
-“처음 클론한 사람이 그대로 따라 하면 되는” 기준으로 썼습니다.
-
----
-
 로컬 pc인 윈도우11 + VSCode(or Cursor) 환경에서 진행합니다.
 
----
 
 # 0. 로컬 개발 환경 준비 (Windows 11 + VSCode)
 
@@ -18,7 +12,7 @@ cd ncloud-docs-mcp-server
 
 VSCode / Cursor 에서 이 폴더를 열어 둡니다.
 
----
+
 
 # 1. uv 기반 파이썬 환경 세팅
 
@@ -67,7 +61,7 @@ uv run python -c "import sys; print(sys.version); import ncloud_docs_mcp; print(
 
 마지막 줄에 `OK` 가 나오면 패키지 인식은 정상입니다.
 
----
+
 
 # 2. 패키지 구조 준비 (이미 레포에 포함된 경우 확인만)
 
@@ -122,7 +116,7 @@ New-Item -ItemType Directory -Path ncloud_docs_mcp/storage
 
 하지만 이제는 레포에 이미 포함되어 있으므로, 클론한 사람은 **그냥 파일만 확인하면 됩니다.**
 
----
+
 
 # 3. 데이터 디렉터리 생성
 
@@ -135,7 +129,7 @@ New-Item -ItemType Directory -Path data/cache_html
 
 (Qdrant 저장소는 Windows 환경 문제 때문에 컨테이너 내부에 유지합니다.)
 
----
+
 
 # 4. Python 의존성 설치
 
@@ -160,7 +154,7 @@ uv add mcp
 uv run python -c "import httpx, bs4, qdrant_client, pydantic; print('deps OK')"
 ```
 
----
+
 
 # 5. Qdrant 컨테이너 실행 (Windows용 권장 방식)
 
@@ -202,7 +196,7 @@ qdrant 컨테이너가 `Up` 상태이면 OK입니다.
 http://localhost:6333/dashboard
 ```
 
----
+
 
 # 6. 인덱서 실행 (금융 사용 가이드 인덱싱)
 
@@ -235,7 +229,7 @@ uv run python -m ncloud_docs_mcp.cli index-fin
 * Qdrant 대시보드의 `Collections → ncp_docs_fin_usage → Points` 에서
   포인트(벡터) 개수가 증가하는 것을 확인할 수 있습니다.
 
----
+
 
 # 7. Qdrant 연동 스모크 테스트 (선택)
 
@@ -250,7 +244,7 @@ uv run python -c "from ncloud_docs_mcp.vector.qdrant_client import NcpQdrantClie
 `done` 이 출력되면 컬렉션 생성/접근은 정상입니다.
 (인덱서에서 `upsert_sections` 호출 시에도 자동으로 `ensure_collection()` 이 호출됩니다.)
 
----
+
 
 # 8. 검색 기능 테스트 (내부 Python 함수)
 
@@ -285,7 +279,7 @@ uv run python -c "from ncloud_docs_mcp.server.tools import ncp_search_docs; impo
 * 현재는 Dummy 임베딩을 사용하므로 “정확한 의미 검색”이라기보다는
   “파이프라인이 잘 동작하는지” 확인용입니다.
 
----
+
 
 # 9. 문서 읽기 기능 테스트 (내부 Python 함수)
 
@@ -326,3 +320,165 @@ uv run python -c "from ncloud_docs_mcp.server.tools import ncp_read_doc; import 
 2. “문서를 검색하고 읽을 수 있는 서버 내부 로직”
 
 까지 구현된 **MVP 1차 단계가 완료된 상태**입니다.
+
+
+좋아요, 지금 README가 **MVP 1차까지** 잘 정리돼 있으니까
+그 아래에 **“MVP 2차 – MCP 서버 + Claude 연동”** 섹션만 이어서 붙이면 딱 깔끔하겠습니다.
+
+아래 내용 그대로 10번 섹션 뒤에 붙여 넣으시면 돼요.
+
+
+
+````markdown
+
+
+# 11. MCP 서버 실행 (FastMCP 기반 stdio 서버)
+
+이 단계부터는 **MCP Python SDK(mcp 패키지)**가 설치되어 있다고 가정합니다.
+
+```powershell
+uv add mcp
+````
+
+MCP 서버 엔트리 포인트는 다음 모듈입니다.
+
+```text
+ncloud_docs_mcp.server.mcp_server
+```
+
+로컬에서 MCP 서버가 에러 없이 뜨는지 먼저 확인합니다.
+
+```powershell
+uv run python -m ncloud_docs_mcp.server.mcp_server
+```
+
+* 정상 동작 시 **아무 출력 없이 그대로 대기 상태**가 됩니다.
+* `Ctrl + C` 로 종료하면 됩니다.
+* MCP 서버는 STDIO(JSON-RPC) 기반이므로,
+  `mcp_server.py` 내부에서는 `print()`로 stdout에 로그를 찍으면 안 됩니다.
+  (로그가 필요하면 `logging` + stderr 핸들러를 사용해야 합니다.)
+
+
+
+# 12. Claude Desktop MCP 서버 연동
+
+이 프로젝트는 Claude Desktop의 MCP 기능을 통해 툴로 호출할 수 있습니다.
+
+## 12-1. Claude Desktop 설정 파일 열기
+
+Claude Desktop 메뉴에서:
+
+* `Developer` → `Edit Config` 선택
+
+Windows 기준 설정 파일 경로는 대략 다음과 같습니다.
+
+```text
+%APPDATA%\Claude\claude_desktop_config.json
+```
+
+## 12-2. mcpServers 항목에 서버 등록
+
+`claude_desktop_config.json` 의 `mcpServers` 항목에 아래 내용을 추가합니다.
+(이미 `mcpServers`가 있다면 그 안에 `"ncloud-docs-mcp"` 블록만 추가)
+
+`"D:\\sandbox\\CODE\\ncloud-docs-mcp-server"` 부분은 **본인 로컬 경로**에 맞게 수정해야 합니다.
+
+```jsonc
+{
+  "mcpServers": {
+    "ncloud-docs-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:\\sandbox\\CODE\\ncloud-docs-mcp-server",
+        "run",
+        "python",
+        "-m",
+        "ncloud_docs_mcp.server.mcp_server"
+      ]
+    }
+  }
+}
+```
+
+수정 후에는 **Claude Desktop을 완전히 종료했다가 다시 실행**해야 변경사항이 반영됩니다.
+
+
+# 13. Claude에서 MCP 툴 동작 확인
+
+Claude Desktop 재실행 후, 아무 채팅이나 열고 아래를 확인합니다.
+
+1. 입력창에서 `/` 를 입력해보면 MCP 툴 목록에
+   `search_docs`, `read_doc` 비슷한 이름의 툴이 보이는지 확인합니다.
+2. 또는 Claude에게 자연어로 다음과 같이 요청해볼 수 있습니다.
+
+### 13-1. search_docs 툴 테스트
+
+예시 프롬프트:
+
+> "ncloud 문서 MCP 서버 연결된 거 맞으면,
+> search_docs 툴로 금융(fin) 플랫폼에서 server 관련 문서 5개만 찾아줘"
+
+내부적으로는 대략 다음 호출이 수행됩니다.
+
+```python
+search_docs(platform="fin", query="server", top_k=5)
+```
+
+정상이라면 Claude 응답에 다음과 유사한 JSON/요약이 포함됩니다.
+
+```json
+{
+  "platform": "fin",
+  "query": "server",
+  "top_k": 5,
+  "results": [
+    {
+      "title": "(추후추출)",
+      "url": "https://guide-fin.ncloud-docs.com/docs/cloudinsight-faq",
+      "section": "Q. 특정 시간대에 이벤트 룰 액션을 정지할 수 있는 방법이 있나요?",
+      "snippet": "A.Planned Maintenance 기능을 활용하면 ...",
+      "score": 0.8768,
+      "platform": "fin"
+    },
+    ...
+  ]
+}
+```
+
+Claude는 이 결과를 바탕으로 **관련 문서 목록 + 간단 요약**을 보여주게 됩니다.
+
+### 13-2. read_doc 툴 테스트
+
+예시 프롬프트:
+
+> "read_doc 툴로 [https://guide-fin.ncloud-docs.com/docs/server-overview](https://guide-fin.ncloud-docs.com/docs/server-overview) 문서를 읽고 요약해줘"
+
+내부적으로는 다음 호출이 수행됩니다.
+
+```python
+read_doc(url="https://guide-fin.ncloud-docs.com/docs/server-overview")
+```
+
+정상이라면 `ncp_read_doc()`에서 반환한 `markdown_body`를 기반으로, Claude가 문서 내용을 요약해 줍니다.
+
+
+# 14. 정리 – 여기까지가 MVP 2차
+
+여기까지 완료되면 다음이 모두 충족됩니다.
+
+1. 금융 사용 가이드 전체(또는 max_urls 범위)가 Qdrant에 인덱싱됨
+2. 내부 함수 `ncp_search_docs()` / `ncp_read_doc()` 로 검색 및 문서 읽기가 정상 동작
+3. MCP 서버(`ncloud_docs_mcp.server.mcp_server`)가 STDIO 기반으로 실행 가능
+4. Claude Desktop에서
+
+   * `search_docs` MCP 툴로 금융 문서 검색
+   * `read_doc` MCP 툴로 단일 문서 읽기 + 요약
+     을 실제로 호출/활용할 수 있음
+
+즉,
+
+1. **“금융 사용 가이드 전체를 자동 인덱싱하는 시스템”**
+2. **“문서를 검색하고 읽을 수 있는 MCP 서버(Claude 연동)”**
+
+까지 구현된 **MVP 2차 단계가 완료된 상태**입니다.
